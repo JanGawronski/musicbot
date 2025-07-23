@@ -9,6 +9,7 @@ use serenity::model::application::Interaction;
 use serenity::model::gateway::Ready;
 use serenity::model::id::GuildId;
 use serenity::prelude::*;
+use songbird::SerenityInit;
 
 struct Handler;
 
@@ -19,8 +20,8 @@ impl EventHandler for Handler {
             println!("Received command interaction: {command:#?}");
 
             let content = match command.data.name.as_str() {
-                "play" => Some(commands::play::run(&command.data.options())),
-                _ => Some("not implemented".to_string()),
+                "play" => commands::play::run(&ctx, &command).await,
+                _ => Some("Unknown command".to_string()),
             };
 
             if let Some(content) = content {
@@ -63,7 +64,11 @@ async fn main() {
     let intents = GatewayIntents::GUILDS | GatewayIntents::GUILD_VOICE_STATES;
 
     let mut client =
-        Client::builder(&token, intents).event_handler(Handler).await.expect("Err creating client");
+        Client::builder(&token, intents)
+        .event_handler(Handler)
+        .register_songbird()
+        .await
+        .expect("Err creating client");
 
     if let Err(why) = client.start().await {
         println!("Client error: {why:?}");

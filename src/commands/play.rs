@@ -1,8 +1,15 @@
 use serenity::builder::{CreateCommand, CreateCommandOption};
-use serenity::model::application::{ResolvedOption, CommandOptionType};
+use serenity::model::application::{CommandInteraction, CommandOptionType};
+use serenity::prelude::Context;
 
-pub fn run(_options: &[ResolvedOption]) -> String {
-    format!("Playing music with options: {:?}", _options)
+use discordbot::audio::join::join;
+
+pub async fn run(ctx: &Context, command: &CommandInteraction) -> Option<String> {
+    if let Err(e) = join(ctx, command).await {
+        return Some(e.to_string());
+    }
+
+    None
 }
 
 pub fn register() -> CreateCommand {
