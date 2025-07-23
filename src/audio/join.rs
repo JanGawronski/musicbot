@@ -7,16 +7,18 @@ pub async fn join(ctx: &Context, command: &CommandInteraction) -> Result<(), Str
 
     let voice_states = guild_id.to_guild_cached(&ctx.cache)
         .ok_or("Guild not found in cache.")?
-        .voice_states.clone();
+        .voice_states
+        .clone();
+
+    if let Some(voice_state) = voice_states.get(&ctx.cache.current_user().id) {
+        if voice_state.channel_id.is_some() {
+            return Ok(());
+        }
+    }
 
     let channel_id = voice_states
-        .get(&ctx.cache.current_user().id)
+        .get(&command.user.id)
         .and_then(|voice_state| voice_state.channel_id)
-        .or_else(|| {
-            voice_states
-                .get(&command.user.id)
-                .and_then(|voice_state| voice_state.channel_id)
-        })
         .ok_or("You must be in a voice channel to use this command.")?;
 
 

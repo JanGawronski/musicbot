@@ -5,8 +5,8 @@ use serenity::prelude::Context;
 use discordbot::audio::join::join;
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) -> Option<String> {
-    if let Err(e) = join(ctx, command).await {
-        return Some(e.to_string());
+    if let Err(why) = join(ctx, command).await {
+        return Some(why);
     }
 
     None
