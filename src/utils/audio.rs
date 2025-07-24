@@ -1,7 +1,6 @@
 use serenity::model::application::CommandInteraction;
 use serenity::prelude::Context;
 
-
 pub async fn join(ctx: &Context, command: &CommandInteraction) -> Result<(), String> {
     let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
 

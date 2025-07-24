@@ -2,7 +2,7 @@ use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::model::application::{CommandInteraction, CommandOptionType};
 use serenity::prelude::Context;
 
-use discordbot::audio::join::join;
+use discordbot::utils::audio::join;
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) -> Option<String> {
     if let Err(why) = join(ctx, command).await {
