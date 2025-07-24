@@ -1,5 +1,23 @@
+use serenity::async_trait;
 use serenity::model::application::CommandInteraction;
-use serenity::prelude::Context;
+use serenity::prelude::*;
+use songbird::{
+    Event,
+    EventContext,
+    EventHandler as VoiceEventHandler,
+    TrackEvent,
+};
+
+struct TrackStartNotifier;
+
+#[async_trait]
+impl VoiceEventHandler for TrackStartNotifier {
+    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
+        None
+    }
+}
+
+
 
 pub async fn join(ctx: &Context, command: &CommandInteraction) -> Result<(), String> {
     let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
@@ -32,6 +50,13 @@ pub async fn join(ctx: &Context, command: &CommandInteraction) -> Result<(), Str
         .map_err(|e| {
         format!("Failed to join voice channel: {}", e)
     })?;
+
+    let mut handle = handle_lock.lock().await;
+
+    handle.add_global_event(
+            Event::Track(TrackEvent::Play),
+            TrackStartNotifier
+        );
 
     Ok(())
 }
