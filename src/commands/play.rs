@@ -1,41 +1,46 @@
-use serenity::all::EditInteractionResponse;
 use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::model::application::{CommandInteraction, CommandOptionType};
 use serenity::prelude::Context;
 
-use discordbot::utils::audio::{process_query, get_channel_to_join, join, play};
+use discordbot::utils::{
+    audio::*,
+    response::*,
+};
 
-pub async fn run(ctx: &Context, command: &CommandInteraction) -> Option<String> {
-    command.defer(&ctx.http).await.ok()?;
+pub async fn run(ctx: &Context, command: &CommandInteraction) {
+    if let Err(e) = command.defer(&ctx.http).await {
+        println!("Failed to defer interaction: {}", e);
+        normal_response(ctx, command, "Server error".to_string()).await;
+        return;
+    }
 
     let channel_id = match get_channel_to_join(ctx, command) {
         Ok(id) => id,
-        Err(err) => return Some(err),
+        Err(err) => return edit_response(ctx, command, err).await,
     };
 
     let (track, aux_metadata) = match process_query(ctx, command).await {
         Ok((input, metadata)) => (input, metadata),
-        Err(err) => return Some(err),
+        Err(err) => {
+            println!("Failed to process query: {}", err);
+            edit_response(ctx, command, "Failed to fetch song.".to_string()).await;
+            return;
+        },
     };
 
     if let Err(why) = join(ctx, command, channel_id).await {
-        return Some(why);
+        println!("Failed to join voice channel: {}", why);
+        edit_response(ctx, command, "Failed to join voice channel.".to_string()).await;
+        return;
     }
 
     if let Err(why) = play(ctx, command, track).await {
-        return Some(why);
+        println!("Failed to play track: {}", why);
+        edit_response(ctx, command, "Failed to play track.".to_string()).await;
+        return;
     }
 
-    let response = format!("Now playing: {}", aux_metadata.title.unwrap_or("Unknown title".to_string()));
-
-    let builder = EditInteractionResponse::new()
-        .content(response);
-
-    if let Err(why) = command.edit_response(&ctx.http, builder).await {
-        println!("Failed to edit interaction response: {}", why);
-    }
-
-    None
+    edit_response(ctx, command, format!("Now playing: {}", aux_metadata.title.unwrap_or("Unknown title".to_string()))).await;
 }
 
 pub fn register() -> CreateCommand {

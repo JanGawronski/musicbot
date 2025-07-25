@@ -3,16 +3,24 @@ mod commands;
 use std::env;
 use dotenv::dotenv;
 
-use serenity::async_trait;
-use serenity::builder::{CreateInteractionResponse, CreateInteractionResponseMessage};
-use serenity::model::application::Interaction;
-use serenity::model::gateway::Ready;
-use serenity::model::id::GuildId;
-use serenity::prelude::*;
+use serenity::{
+    async_trait,
+    model::{
+        application::Interaction,
+        gateway::Ready,
+        id::GuildId,
+    },
+    prelude::*,
+};
+
 use songbird::SerenityInit;
+
 use reqwest::Client as HttpClient;
 
-use discordbot::utils::audio::HttpKey;
+use discordbot::utils::{
+    audio::HttpKey,
+    response::normal_response,
+};
 
 struct Handler;
 
@@ -20,26 +28,14 @@ struct Handler;
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(command) = interaction {
-            println!("Received command interaction: {command:#?}");
-
-            let content = match command.data.name.as_str() {
+            match command.data.name.as_str() {
                 "play" => commands::play::run(&ctx, &command).await,
-                _ => Some("Unknown command".to_string()),
+                _ => normal_response(&ctx, &command, "Unknown command".to_string()).await,
             };
-
-            if let Some(content) = content {
-                let data = CreateInteractionResponseMessage::new().content(content);
-                let builder = CreateInteractionResponse::Message(data);
-                if let Err(why) = command.create_response(&ctx.http, builder).await {
-                    println!("Cannot respond to slash command: {why}");
-                }
-            }
         }
     }
 
-    async fn ready(&self, ctx: Context, ready: Ready) {
-        println!("{} is connected!", ready.user.name);
-
+    async fn ready(&self, ctx: Context, _: Ready) {
         let guild_id = GuildId::new(
             env::var("GUILD_ID")
                 .expect("Expected GUILD_ID in environment")
@@ -47,14 +43,11 @@ impl EventHandler for Handler {
                 .expect("GUILD_ID must be an integer"),
         );
 
-        let commands = guild_id 
+        let _ = guild_id 
             .set_commands(&ctx.http, vec![
                 commands::play::register(),
             ])
             .await;
-
-        println!("I now have the following guild slash commands: {commands:#?}");
-
     }
 }
 
