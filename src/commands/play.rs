@@ -1,18 +1,34 @@
+use serenity::all::EditInteractionResponse;
 use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::model::application::{CommandInteraction, CommandOptionType};
 use serenity::prelude::Context;
 
-use discordbot::utils::audio::{join, play};
+use discordbot::utils::audio::{process_query, join, play};
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) -> Option<String> {
+    command.defer(&ctx.http).await.ok()?;
+    
+    let (track, aux_metadata) = match process_query(ctx, command).await {
+        Ok((input, metadata)) => (input, metadata),
+        Err(err) => return Some(err),
+    };
+
     if let Err(why) = join(ctx, command).await {
         return Some(why);
     }
 
-    if let Err(why) = play(ctx, command).await {
+    if let Err(why) = play(ctx, command, track).await {
         return Some(why);
     }
 
+    let response = format!("Now playing: {}", aux_metadata.title.unwrap_or("Unknown title".to_string()));
+
+    let builder = EditInteractionResponse::new()
+        .content(response);
+
+    if let Err(why) = command.edit_response(&ctx.http, builder).await {
+        println!("Failed to edit interaction response: {}", why);
+    }
 
     None
 }
