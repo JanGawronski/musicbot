@@ -1,8 +1,10 @@
 use serenity::{
     async_trait,
-    model::application::{
-        CommandInteraction, 
-        CommandDataOptionValue
+    model::{
+        application::{
+            CommandDataOptionValue, CommandInteraction
+        },
+        id::ChannelId,
     },
     prelude::*
 };
@@ -44,11 +46,9 @@ impl VoiceEventHandler for TrackStartNotifier {
     }
 }
 
-
-
-pub async fn join(ctx: &Context, command: &CommandInteraction) -> Result<(), String> {
+pub fn get_channel_to_join(ctx: &Context, command: &CommandInteraction) -> Result<ChannelId, String> {
     let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
-
+    
     let voice_states = guild_id.to_guild_cached(&ctx.cache)
         .ok_or("Guild not found in cache.")?
         .voice_states
@@ -56,7 +56,7 @@ pub async fn join(ctx: &Context, command: &CommandInteraction) -> Result<(), Str
 
     if let Some(voice_state) = voice_states.get(&ctx.cache.current_user().id) {
         if voice_state.channel_id.is_some() {
-            return Ok(());
+            return Ok(voice_state.channel_id.unwrap());
         }
     }
 
@@ -65,6 +65,11 @@ pub async fn join(ctx: &Context, command: &CommandInteraction) -> Result<(), Str
         .and_then(|voice_state| voice_state.channel_id)
         .ok_or("You must be in a voice channel to use this command.")?;
 
+    Ok(channel_id)
+}
+
+pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: ChannelId) -> Result<(), String> {
+    let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
 
     let manager = songbird::get(ctx)
         .await

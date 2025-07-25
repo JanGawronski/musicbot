@@ -3,17 +3,22 @@ use serenity::builder::{CreateCommand, CreateCommandOption};
 use serenity::model::application::{CommandInteraction, CommandOptionType};
 use serenity::prelude::Context;
 
-use discordbot::utils::audio::{process_query, join, play};
+use discordbot::utils::audio::{process_query, get_channel_to_join, join, play};
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) -> Option<String> {
     command.defer(&ctx.http).await.ok()?;
-    
+
+    let channel_id = match get_channel_to_join(ctx, command) {
+        Ok(id) => id,
+        Err(err) => return Some(err),
+    };
+
     let (track, aux_metadata) = match process_query(ctx, command).await {
         Ok((input, metadata)) => (input, metadata),
         Err(err) => return Some(err),
     };
 
-    if let Err(why) = join(ctx, command).await {
+    if let Err(why) = join(ctx, command, channel_id).await {
         return Some(why);
     }
 
