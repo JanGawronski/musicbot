@@ -10,6 +10,9 @@ use serenity::model::gateway::Ready;
 use serenity::model::id::GuildId;
 use serenity::prelude::*;
 use songbird::SerenityInit;
+use reqwest::Client as HttpClient;
+
+use discordbot::utils::audio::HttpKey;
 
 struct Handler;
 
@@ -67,6 +70,7 @@ async fn main() {
         Client::builder(&token, intents)
         .event_handler(Handler)
         .register_songbird()
+        .type_map_insert::<HttpKey>(HttpClient::new())
         .await
         .expect("Err creating client");
 
