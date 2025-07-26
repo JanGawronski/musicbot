@@ -30,6 +30,7 @@ impl EventHandler for Handler {
         if let Interaction::Command(command) = interaction {
             match command.data.name.as_str() {
                 "play" => commands::play::run(&ctx, &command).await,
+                "skip" => commands::skip::run(&ctx, &command).await,
                 _ => normal_response(&ctx, &command, Some("Unknown command".to_string()), None).await,
             };
         }
@@ -46,6 +47,7 @@ impl EventHandler for Handler {
         let _ = guild_id 
             .set_commands(&ctx.http, vec![
                 commands::play::register(),
+                commands::skip::register(),
             ])
             .await;
     }
