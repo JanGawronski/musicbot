@@ -20,15 +20,15 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         Err(err) => return edit_response(ctx, command, Some(err), None).await,
     };
 
-    let (track, aux_metadata) = match process_query(ctx, command).await {
-        Ok((mut track, aux_metadata)) => {
+    let (track, metadata) = match process_query(ctx, command).await {
+        Ok((mut track, metadata)) => {
             if channel_id.is_none() {
-                track.user_data = Arc::new((aux_metadata.clone(), Some(command.clone())));
+                track.user_data = Arc::new((metadata.clone(), Some(command.clone())));
             } else {
-                track.user_data = Arc::new((aux_metadata.clone(), None::<CommandInteraction>));
+                track.user_data = Arc::new((metadata.clone(), None::<CommandInteraction>));
             }
             
-            (track, aux_metadata)
+            (track, metadata)
         },
         Err(err) => {
             println!("Failed to process query: {}", err);
@@ -46,7 +46,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         }
     }
 
-    if let Err(why) = play(ctx, command, track, aux_metadata, channel_id.is_none()).await {
+    if let Err(why) = play(ctx, command, track, metadata, channel_id.is_none()).await {
         println!("Failed to play track: {}", why);
         edit_response(ctx, command, Some("Failed to play track.".to_string()), None).await;
         return;

@@ -15,9 +15,7 @@ use serenity::{
 use songbird::{
     input::{
         YoutubeDl,
-        Compose,
         Input,
-        AuxMetadata
     },
     Songbird,
     Event,
@@ -32,7 +30,8 @@ use reqwest::Client as HttpClient;
 
 use std::{
     ops::Deref,
-    sync::Arc
+    sync::Arc,
+    process::Command,
 };
 
 use super::response::{
@@ -40,6 +39,21 @@ use super::response::{
     create_track_embed,
     edit_response,
 };
+
+use serde::Deserialize;
+
+#[derive(Deserialize, Clone)]
+pub struct Metadata {
+    pub title: Option<String>,
+    pub uploader: Option<String>,
+    pub track: Option<String>,
+    pub artist: Option<String>,
+    pub duration: Option<u32>,
+    pub thumbnail: Option<String>,
+    pub webpage_url: Option<String>,
+    pub url: Option<String>,
+}
+
 
 pub struct HttpKey;
 
@@ -56,8 +70,8 @@ struct TrackStartNotifier {
 impl EventHandler for TrackStartNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         if let EventContext::Track([(_, handle)]) = ctx {
-            let data = handle.data::<(AuxMetadata, Option<CommandInteraction>)>();
-            let (aux_metadata, some_command) = data.deref();
+            let data = handle.data::<(Metadata, Option<CommandInteraction>)>();
+            let (metadata, some_command) = data.deref();
             if let Some(command) = some_command {
                 let manager = songbird::get(&self.ctx)
                     .await
@@ -71,7 +85,7 @@ impl EventHandler for TrackStartNotifier {
                         0
                     };
 
-                let embed = create_track_embed(aux_metadata, queue_length, true);
+                let embed = create_track_embed(metadata, queue_length, true);
 
                 followup_response(&self.ctx, &command, embed).await;
             }
@@ -185,7 +199,7 @@ pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: Chann
     Ok(())
 }
 
-pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, aux_metadata: AuxMetadata, add_to_queue: bool) -> Result<(), String> {
+pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, metadata: Metadata, add_to_queue: bool) -> Result<(), String> {
     let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
 
     let manager = songbird::get(ctx)
@@ -198,7 +212,7 @@ pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, aux
 
     handler.enqueue(track).await;
 
-    let embed = create_track_embed(&aux_metadata, handler.queue().len() - 1, !add_to_queue);
+    let embed = create_track_embed(&metadata, handler.queue().len() - 1, !add_to_queue);
 
     drop(handler);
 
@@ -207,7 +221,7 @@ pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, aux
     Ok(())
 }
 
-pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Result<(Track, AuxMetadata), String> {
+pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Result<(Track, Metadata), String> {
     let value = &command.data.options.get(0)
         .ok_or("No query provided.")?
         .value;
@@ -217,6 +231,27 @@ pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Resul
         _ => return Err("Query must be a string.".to_string()),
     };
 
+    let ytdlp_query = if query.contains("/") {
+        query.to_string()
+    } else {
+        format!("ytsearch:{}", query)
+    };
+
+    let ytdlp_output = Command::new("./yt-dlp")
+        .args(["--format", 
+            "bestaudio/best",
+            "--ignore-config",
+            "--no-playlist",
+            "--no-download",
+            "--dump-json",
+            ytdlp_query.as_str()
+            ])
+        .output()
+        .map_err(|e| format!("Failed to run yt-dlp: {}", e))?;
+
+    let metadata: Metadata = serde_json::from_slice(&ytdlp_output.stdout)
+        .map_err(|e| format!("yt-dlp output was not valid UTF-8: {}", e))?;
+
     let http_client = {
         let data = ctx.data.read().await;
         data.get::<HttpKey>()
@@ -224,25 +259,16 @@ pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Resul
             .expect("Guaranteed to exist in the typemap.")
     };
 
-    let mut source = if query.contains("/") {
-        YoutubeDl::new(http_client, query.clone())
-        .user_args(vec!["--no-config".to_string()])
-    } else {
-        YoutubeDl::new(http_client, format!("ytsearch:{}", query))
-        .user_args(vec!["--no-config".to_string()])
-    };
+    let source = if let Some(ref url) = metadata.url {
+            YoutubeDl::new_ytdl_like("./yt-dlp", http_client, url.clone())
+                .user_args(vec!["--no-config".to_string()])
+        } else {
+            return Err("No valid URL found in metadata.".to_string());
+        };
 
-    let input_fut = tokio::spawn(Input::from(source.clone()).make_live_async());
-
-    let metadata = source.aux_metadata()
+    let input = Input::from(source).make_live_async()
         .await
-        .map_err(|e| format!("Failed to get metadata: {}", e))?;
-
-
-    let input = input_fut.await
-        .map_err(|e| format!("Failed to create input: {}", e))?
-        .map_err(|e| format!("Failed to create input: {}", e))?;
-
+        .map_err(|e| format!("Failed to create live input: {}", e))?;
 
     let track = Track::from(input);
 

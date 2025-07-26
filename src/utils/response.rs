@@ -8,7 +8,7 @@ use serenity::all::{
     CreateEmbed,
     CreateEmbedAuthor,
 };
-use songbird::input::AuxMetadata;
+use super::audio::Metadata;
 
 pub async fn normal_response(ctx: &Context, command: &CommandInteraction, string: Option<String>, embed: Option<CreateEmbed>) {
     let message = if let Some(embed) = embed {
@@ -54,37 +54,36 @@ pub async fn followup_response(ctx: &Context, command: &CommandInteraction, embe
 }
 
 
-pub fn create_track_embed(aux_metadata: &AuxMetadata, queue_length: usize, is_now_playing: bool) -> CreateEmbed {
+pub fn create_track_embed(metadata: &Metadata, queue_length: usize, is_now_playing: bool) -> CreateEmbed {
     let mut embed = CreateEmbed::new();
 
-    if let Some(track) = &aux_metadata.track {
+    if let Some(track) = &metadata.track {
         embed = embed.title(track);
-    } else if let Some(title) = &aux_metadata.title {
+    } else if let Some(title) = &metadata.title {
         embed = embed.title(title);
     } else {
         embed = embed.title("Unknown Track");
     }
 
-    if let Some(source_url) = &aux_metadata.source_url {
+    if let Some(source_url) = &metadata.webpage_url {
         embed = embed.url(source_url);
     }
 
-    if let Some(thumbnail) = &aux_metadata.thumbnail {
+    if let Some(thumbnail) = &metadata.thumbnail {
         embed = embed.thumbnail(thumbnail);
     }
 
-    if let Some(artist) = &aux_metadata.artist {
+    if let Some(artist) = &metadata.artist {
         embed = embed.field("Artist", artist, true);
-    } else if let Some(author) = &aux_metadata.channel {
+    } else if let Some(author) = &metadata.uploader {
         embed = embed.field("Author", author, true);
     }
     
     
-    if let Some(duration) = aux_metadata.duration {
-        let total_seconds = duration.as_secs();
-        let hours = total_seconds / 3600;
-        let minutes = (total_seconds % 3600) / 60;
-        let seconds = total_seconds % 60;
+    if let Some(duration) = metadata.duration {
+        let hours = duration / 3600;
+        let minutes = (duration % 3600) / 60;
+        let seconds = duration % 60;
 
         let string = if hours > 0 {
                 format!("{hours}:{minutes:02}:{seconds:02}")
