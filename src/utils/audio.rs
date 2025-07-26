@@ -4,7 +4,10 @@ use serenity::{
         application::{
             CommandDataOptionValue, CommandInteraction
         },
-        id::ChannelId,
+        id::{
+            ChannelId,
+            GuildId
+        },
     },
     prelude::*
 };
@@ -16,13 +19,23 @@ use songbird::{
         Input,
         AuxMetadata
     },
+    Songbird,
     Event,
     EventContext,
-    EventHandler as VoiceEventHandler,
+    EventHandler,
     TrackEvent,
+    CoreEvent,
     tracks::Track
 };
+
 use reqwest::Client as HttpClient;
+
+use std::{
+    ops::Deref,
+    sync::Arc
+};
+
+use super::response::followup_response;
 
 pub struct HttpKey;
 
@@ -30,15 +43,58 @@ impl TypeMapKey for HttpKey {
     type Value = HttpClient;
 }
 
-struct TrackStartNotifier;
+struct TrackStartNotifier {
+    ctx: Context,
+    guild_id: GuildId,
+}
 
 #[async_trait]
-impl VoiceEventHandler for TrackStartNotifier {
+impl EventHandler for TrackStartNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
-        if let EventContext::Track(tracks) = ctx {
-            for (state, handle) in *tracks {
-                println!("{:?}", state);
-                println!("{:?}", handle);
+        if let EventContext::Track([(_, handle)]) = ctx {
+            let data = handle.data::<(AuxMetadata, Option<CommandInteraction>)>();
+            let (aux_metadata, some_command) = data.deref();
+            if let Some(command) = some_command {
+                let manager = songbird::get(&self.ctx)
+                    .await
+                    .expect("Songbird Voice client placed in at initialisation.")
+                    .clone();
+
+                let queue_length = if let Some(handler_lock) = manager.get(self.guild_id) {
+                        let handler = handler_lock.lock().await;
+                        handler.queue().len()
+                    } else {
+                        0
+                    };
+                
+                let response = format!(
+                    "Now playing: {}\nQueue length: {}",
+                    aux_metadata.title.as_deref().unwrap_or("Unknown title"),
+                    queue_length
+                );
+
+                followup_response(&self.ctx, &command, response).await;
+            }
+        }
+        None
+    }
+}
+
+struct TrackEndNotifier {
+    manager: Arc<Songbird>,
+    guild_id: GuildId,
+}
+
+#[async_trait]
+impl EventHandler for TrackEndNotifier {
+    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
+        if let EventContext::Track(_) = ctx {
+            if let Some(handler_lock) = self.manager.get(self.guild_id) {
+                if handler_lock.lock().await.queue().is_empty() {
+                    if let Err(why) = self.manager.leave(self.guild_id).await {
+                        println!("Failed to leave voice channel: {}", why);
+                    }
+                }
             }
         }
         
@@ -46,7 +102,24 @@ impl VoiceEventHandler for TrackStartNotifier {
     }
 }
 
-pub fn get_channel_to_join(ctx: &Context, command: &CommandInteraction) -> Result<ChannelId, String> {
+struct DriverDisconnectNotifier {
+    manager: Arc<Songbird>,
+    guild_id: GuildId,
+}
+
+#[async_trait]
+impl EventHandler for DriverDisconnectNotifier {
+    async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
+        if let EventContext::DriverDisconnect(_) = ctx {
+            if let Err(why) = self.manager.remove(self.guild_id).await {
+                    println!("Failed to remove voice handler: {}", why);
+                }
+        }
+        None
+    }
+}
+
+pub fn get_channel_to_join(ctx: &Context, command: &CommandInteraction) -> Result<Option<ChannelId>, String> {
     let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
     
     let voice_states = guild_id.to_guild_cached(&ctx.cache)
@@ -56,7 +129,7 @@ pub fn get_channel_to_join(ctx: &Context, command: &CommandInteraction) -> Resul
 
     if let Some(voice_state) = voice_states.get(&ctx.cache.current_user().id) {
         if voice_state.channel_id.is_some() {
-            return Ok(voice_state.channel_id.unwrap());
+            return Ok(None);
         }
     }
 
@@ -65,7 +138,7 @@ pub fn get_channel_to_join(ctx: &Context, command: &CommandInteraction) -> Resul
         .and_then(|voice_state| voice_state.channel_id)
         .ok_or("You must be in a voice channel to use this command.")?;
 
-    Ok(channel_id)
+    Ok(Some(channel_id))
 }
 
 pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: ChannelId) -> Result<(), String> {
@@ -86,10 +159,29 @@ pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: Chann
     let mut handle = handle_lock.lock().await;
 
     handle.add_global_event(
-            Event::Track(TrackEvent::Play),
-            TrackStartNotifier
-        );
+        Event::Track(TrackEvent::Play),
+        TrackStartNotifier {
+            ctx: ctx.clone(),
+            guild_id: guild_id,
+        }
+    );
 
+    handle.add_global_event(
+        Event::Track(TrackEvent::End),
+        TrackEndNotifier {
+            manager: manager.clone(),
+            guild_id,
+        }
+    );
+
+    handle.add_global_event(
+        Event::Core(CoreEvent::DriverDisconnect),
+        DriverDisconnectNotifier {
+            manager: manager,
+            guild_id,
+        }
+    );
+        
     Ok(())
 }
 
@@ -104,7 +196,7 @@ pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track) -> 
     let handler_lock = manager.get(guild_id).ok_or("No voice handler found for this guild.")?;
     let mut handler = handler_lock.lock().await;
 
-    let _ = handler.play(track);
+    handler.enqueue(track).await;
 
 
     Ok(())
@@ -129,8 +221,10 @@ pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Resul
 
     let mut source = if query.contains("/") {
         YoutubeDl::new(http_client, query.clone())
+        .user_args(vec!["--no-config".to_string()])
     } else {
         YoutubeDl::new(http_client, format!("ytsearch:{}", query))
+        .user_args(vec!["--no-config".to_string()])
     };
 
     let input_fut = tokio::spawn(Input::from(source.clone()).make_live_async());

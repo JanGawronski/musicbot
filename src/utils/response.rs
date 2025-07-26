@@ -4,6 +4,7 @@ use serenity::all::{
     CreateInteractionResponseMessage,
     CreateInteractionResponse,
     EditInteractionResponse,
+    CreateInteractionResponseFollowup,
 };
 
 pub async fn normal_response(ctx: &Context, command: &CommandInteraction, response: String) {
@@ -21,5 +22,13 @@ pub async fn edit_response(ctx: &Context, command: &CommandInteraction, response
 
     if let Err(why) = command.edit_response(&ctx.http, builder).await {
         println!("Failed to edit interaction response: {}", why);
+    }
+}
+
+pub async fn followup_response(ctx: &Context, command: &CommandInteraction, response: String) {
+    let message = CreateInteractionResponseFollowup::new().content(response);
+
+    if let Err(why) = command.create_followup(&ctx.http, message).await {
+        println!("Failed to create follow-up response: {}", why);
     }
 }
