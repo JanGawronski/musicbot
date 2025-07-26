@@ -35,7 +35,11 @@ use std::{
     sync::Arc
 };
 
-use super::response::followup_response;
+use super::response::{
+    followup_response,
+    create_track_embed,
+    edit_response,
+};
 
 pub struct HttpKey;
 
@@ -62,18 +66,14 @@ impl EventHandler for TrackStartNotifier {
 
                 let queue_length = if let Some(handler_lock) = manager.get(self.guild_id) {
                         let handler = handler_lock.lock().await;
-                        handler.queue().len()
+                        handler.queue().len() - 1
                     } else {
                         0
                     };
-                
-                let response = format!(
-                    "Now playing: {}\nQueue length: {}",
-                    aux_metadata.title.as_deref().unwrap_or("Unknown title"),
-                    queue_length
-                );
 
-                followup_response(&self.ctx, &command, response).await;
+                let embed = create_track_embed(aux_metadata, queue_length, true);
+
+                followup_response(&self.ctx, &command, embed).await;
             }
         }
         None
@@ -185,7 +185,7 @@ pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: Chann
     Ok(())
 }
 
-pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track) -> Result<(), String> {
+pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, aux_metadata: AuxMetadata, add_to_queue: bool) -> Result<(), String> {
     let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
 
     let manager = songbird::get(ctx)
@@ -198,6 +198,11 @@ pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track) -> 
 
     handler.enqueue(track).await;
 
+    let embed = create_track_embed(&aux_metadata, handler.queue().len() - 1, !add_to_queue);
+
+    drop(handler);
+
+    edit_response(ctx, command, None, Some(embed)).await;
 
     Ok(())
 }

@@ -11,13 +11,13 @@ use discordbot::utils::{
 pub async fn run(ctx: &Context, command: &CommandInteraction) {
     if let Err(e) = command.defer(&ctx.http).await {
         println!("Failed to defer interaction: {}", e);
-        normal_response(ctx, command, "Server error".to_string()).await;
+        normal_response(ctx, command, Some("Server error".to_string()), None).await;
         return;
     }
 
     let channel_id = match get_channel_to_join(ctx, command) {
         Ok(id) => id,
-        Err(err) => return edit_response(ctx, command, err).await,
+        Err(err) => return edit_response(ctx, command, Some(err), None).await,
     };
 
     let (track, aux_metadata) = match process_query(ctx, command).await {
@@ -32,7 +32,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         },
         Err(err) => {
             println!("Failed to process query: {}", err);
-            edit_response(ctx, command, "Failed to fetch song.".to_string()).await;
+            edit_response(ctx, command, Some("Failed to fetch song.".to_string()), None).await;
             return;
         },
     };
@@ -41,18 +41,16 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     if let Some(id) = channel_id {
         if let Err(why) = join(ctx, command, id).await {
             println!("Failed to join voice channel: {}", why);
-            edit_response(ctx, command, "Failed to join voice channel.".to_string()).await;
+            edit_response(ctx, command, Some("Failed to join voice channel.".to_string()), None).await;
             return;
         }
     }
 
-    if let Err(why) = play(ctx, command, track).await {
+    if let Err(why) = play(ctx, command, track, aux_metadata, channel_id.is_none()).await {
         println!("Failed to play track: {}", why);
-        edit_response(ctx, command, "Failed to play track.".to_string()).await;
+        edit_response(ctx, command, Some("Failed to play track.".to_string()), None).await;
         return;
     }
-
-    edit_response(ctx, command, format!("Now playing: {}", aux_metadata.title.unwrap_or("Unknown title".to_string()))).await;
 }
 
 pub fn register() -> CreateCommand {

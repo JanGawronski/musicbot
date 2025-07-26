@@ -30,7 +30,7 @@ impl EventHandler for Handler {
         if let Interaction::Command(command) = interaction {
             match command.data.name.as_str() {
                 "play" => commands::play::run(&ctx, &command).await,
-                _ => normal_response(&ctx, &command, "Unknown command".to_string()).await,
+                _ => normal_response(&ctx, &command, Some("Unknown command".to_string()), None).await,
             };
         }
     }
