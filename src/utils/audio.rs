@@ -2,7 +2,8 @@ use serenity::{
     async_trait,
     model::{
         application::{
-            CommandDataOptionValue, CommandInteraction
+            CommandDataOptionValue, 
+            CommandInteraction
         },
         id::{
             ChannelId,
@@ -14,24 +15,25 @@ use serenity::{
 
 use songbird::{
     input::{
-        YoutubeDl,
+        HttpRequest,
         Input,
-    },
-    Songbird,
-    Event,
-    EventContext,
-    EventHandler,
-    TrackEvent,
-    CoreEvent,
-    tracks::Track
+    }, 
+    tracks::Track, 
+    CoreEvent, 
+    Event, 
+    EventContext, 
+    EventHandler, 
+    Songbird, 
+    TrackEvent
 };
 
 use reqwest::Client as HttpClient;
 
 use std::{
-    ops::Deref,
+    collections::HashMap, 
+    ops::Deref, 
+    process::Command, 
     sync::Arc,
-    process::Command,
 };
 
 use super::response::{
@@ -54,11 +56,16 @@ pub struct Metadata {
     pub url: Option<String>,
 }
 
-
 pub struct HttpKey;
 
 impl TypeMapKey for HttpKey {
     type Value = HttpClient;
+}
+
+pub struct MetadataCache;
+
+impl TypeMapKey for MetadataCache {
+    type Value = HashMap<String, Metadata>;
 }
 
 struct TrackStartNotifier {
@@ -231,11 +238,75 @@ pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Resul
         _ => return Err("Query must be a string.".to_string()),
     };
 
+    let metadata = fetch_metadata(ctx, query).await?;
+
+    let http_client = {
+        let data = ctx.data.read().await;
+        data.get::<HttpKey>()
+            .cloned()
+            .expect("Guaranteed to exist in the typemap.")
+    };
+
+    let source = if let Some(ref url) = metadata.url {
+            HttpRequest::new(http_client, url.clone())
+        } else {
+            return Err("No valid URL found in metadata.".to_string());
+        };
+
+    let input = Input::from(source).make_live_async()
+        .await
+        .map_err(|e| format!("Failed to create live input: {}", e))?;
+
+    let track = Track::from(input);
+
+    Ok((track, metadata))
+}
+
+async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, String> {
+    let http_client = {
+        let data = ctx.data.read().await;
+        data.get::<HttpKey>()
+            .cloned()
+            .expect("Guaranteed to exist in the typemap.")
+    };
+
+    if let Some(metadata) = ctx.data.read().await
+        .get::<MetadataCache>()
+        .ok_or("Metadata cache not found in type map.")?
+        .get(query) {
+        let response = http_client
+            .head(metadata.url.as_deref().unwrap_or(""))
+            .send()
+            .await
+            .map_err(|e| format!("Failed to send HEAD request: {}", e))?;
+
+        if response.status().is_success() {
+            return Ok(metadata.clone());
+        }
+    }
+
+    let metadata = fetch_metadata_ytdlp(query)?;
+    
+    let mut data = ctx.data.write().await;
+
+    let cache = data.get_mut::<MetadataCache>()
+        .ok_or("Metadata cache not found in type map.")?;
+
+    cache.insert(query.to_string(), metadata.clone());
+
+    if let Some(ref webpage_url) = metadata.webpage_url {
+        cache.insert(webpage_url.clone(), metadata.clone());
+    }
+    
+    Ok(metadata)
+}
+
+fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, String> {
     let ytdlp_query = if query.contains("/") {
         query.to_string()
-    } else {
-        format!("ytsearch:{}", query)
-    };
+        } else {
+            format!("ytsearch:{}", query)
+        };
 
     let ytdlp_output = Command::new("./yt-dlp")
         .args(["--format", 
@@ -252,25 +323,5 @@ pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Resul
     let metadata: Metadata = serde_json::from_slice(&ytdlp_output.stdout)
         .map_err(|e| format!("yt-dlp output was not valid UTF-8: {}", e))?;
 
-    let http_client = {
-        let data = ctx.data.read().await;
-        data.get::<HttpKey>()
-            .cloned()
-            .expect("Guaranteed to exist in the typemap.")
-    };
-
-    let source = if let Some(ref url) = metadata.url {
-            YoutubeDl::new_ytdl_like("./yt-dlp", http_client, url.clone())
-                .user_args(vec!["--no-config".to_string()])
-        } else {
-            return Err("No valid URL found in metadata.".to_string());
-        };
-
-    let input = Input::from(source).make_live_async()
-        .await
-        .map_err(|e| format!("Failed to create live input: {}", e))?;
-
-    let track = Track::from(input);
-
-    Ok((track, metadata))
+    Ok(metadata)
 }

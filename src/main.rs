@@ -1,6 +1,9 @@
 mod commands;
 
-use std::env;
+use std::{
+    env,
+    collections::HashMap,
+};
 use dotenv::dotenv;
 
 use serenity::{
@@ -19,6 +22,7 @@ use reqwest::Client as HttpClient;
 
 use discordbot::utils::{
     audio::HttpKey,
+    audio::MetadataCache,
     response::normal_response,
 };
 
@@ -66,6 +70,7 @@ async fn main() {
         .event_handler(Handler)
         .register_songbird()
         .type_map_insert::<HttpKey>(HttpClient::new())
+        .type_map_insert::<MetadataCache>(HashMap::new())
         .await
         .expect("Err creating client");
 
