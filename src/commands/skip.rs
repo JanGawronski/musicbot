@@ -2,7 +2,7 @@ use serenity::builder::CreateCommand;
 use serenity::model::application::CommandInteraction;
 use serenity::prelude::Context;
 
-use discordbot::utils::response::*;
+use musicbot::utils::response::*;
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let guild_id = match command.guild_id {

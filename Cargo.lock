@@ -550,20 +550,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "discordbot"
-version = "0.1.0"
-dependencies = [
- "dotenv",
- "reqwest 0.12.22",
- "serde",
- "serde_json",
- "serenity",
- "songbird",
- "symphonia",
- "tokio",
-]
-
-[[package]]
 name = "discortp"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1485,6 +1471,20 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "musicbot"
+version = "0.9.0"
+dependencies = [
+ "dotenv",
+ "reqwest 0.12.22",
+ "serde",
+ "serde_json",
+ "serenity",
+ "songbird",
+ "symphonia",
+ "tokio",
 ]
 
 [[package]]

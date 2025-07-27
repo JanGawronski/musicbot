@@ -3,7 +3,7 @@ use serenity::model::application::{CommandInteraction, CommandOptionType};
 use serenity::prelude::Context;
 use std::sync::Arc;
 
-use discordbot::utils::{
+use musicbot::utils::{
     audio::*,
     response::*,
 };

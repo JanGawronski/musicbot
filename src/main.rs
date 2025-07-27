@@ -20,7 +20,7 @@ use songbird::SerenityInit;
 
 use reqwest::Client as HttpClient;
 
-use discordbot::utils::{
+use musicbot::utils::{
     audio::HttpKey,
     audio::MetadataCache,
     response::normal_response,
