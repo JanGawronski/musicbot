@@ -113,7 +113,7 @@ impl EventHandler for TrackEndNotifier {
             if let Some(handler_lock) = self.manager.get(self.guild_id) {
                 if handler_lock.lock().await.queue().is_empty() {
                     if let Err(why) = self.manager.leave(self.guild_id).await {
-                        println!("Failed to leave voice channel: {}", why);
+                        eprintln!("Failed to leave voice channel: {why:?}");
                     }
                 }
             }
@@ -133,7 +133,7 @@ impl EventHandler for DriverDisconnectNotifier {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         if let EventContext::DriverDisconnect(_) = ctx {
             if let Err(why) = self.manager.remove(self.guild_id).await {
-                    println!("Failed to remove voice handler: {}", why);
+                    eprintln!("Failed to remove voice handler: {why:?}");
                 }
         }
         None

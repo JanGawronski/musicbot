@@ -16,14 +16,14 @@ pub async fn normal_response(ctx: &Context, command: &CommandInteraction, string
         } else if let Some(string) = string {
             CreateInteractionResponseMessage::new().content(string)
         } else {
-            println!("No content or embed provided for edit_response");
+            eprintln!("No content or embed provided for normal_response");
             return;
         };
 
     let builder = CreateInteractionResponse::Message(message);
 
     if let Err(why) = command.create_response(&ctx.http, builder).await {
-        println!("Failed to create interaction response: {}", why);
+        eprintln!("Failed to create interaction response: {why:?}");
     }
 }
 
@@ -33,12 +33,12 @@ pub async fn edit_response(ctx: &Context, command: &CommandInteraction, string: 
         } else if let Some(string) = string {
             EditInteractionResponse::new().content(string)
         } else {
-            println!("No content or embed provided for edit_response");
+            eprintln!("No content or embed provided for edit_response");
             return;
         };
 
     if let Err(why) = command.edit_response(&ctx.http, builder).await {
-        println!("Failed to edit interaction response: {}", why);
+        eprintln!("Failed to edit interaction response: {why:?}");
     }
 }
 
@@ -48,7 +48,7 @@ pub async fn followup_response(ctx: &Context, command: &CommandInteraction, embe
         .embed(embed);
 
     if let Err(why) = command.create_followup(&ctx.http, builder).await {
-        println!("Failed to create followup response: {}", why);
+        eprintln!("Failed to create followup response: {why:?}");
     }
 
 }
