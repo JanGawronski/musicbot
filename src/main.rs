@@ -36,6 +36,7 @@ impl EventHandler for Handler {
                 "play" => commands::play::run(&ctx, &command).await,
                 "skip" => commands::skip::run(&ctx, &command).await,
                 "disconnect" => commands::disconnect::run(&ctx, &command).await,
+                "change_channel" => commands::change_channel::run(&ctx, &command).await,
                 _ => normal_response(&ctx, &command, Some("Unknown command".to_string()), None).await,
             };
         }
@@ -54,6 +55,7 @@ impl EventHandler for Handler {
                 commands::play::register(),
                 commands::skip::register(),
                 commands::disconnect::register(),
+                commands::change_channel::register(),
             ])
             .await;
     }
