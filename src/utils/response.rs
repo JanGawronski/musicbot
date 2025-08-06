@@ -42,7 +42,6 @@ pub async fn edit_response(ctx: &Context, command: &CommandInteraction, string: 
     }
 }
 
-
 pub async fn followup_response(ctx: &Context, command: &CommandInteraction, embed: CreateEmbed) {
     let builder = CreateInteractionResponseFollowup::new()
         .embed(embed);
@@ -52,7 +51,6 @@ pub async fn followup_response(ctx: &Context, command: &CommandInteraction, embe
     }
 
 }
-
 
 pub fn create_track_embed(metadata: &Metadata, queue_length: usize, is_now_playing: bool) -> CreateEmbed {
     let mut embed = CreateEmbed::new();
@@ -102,6 +100,38 @@ pub fn create_track_embed(metadata: &Metadata, queue_length: usize, is_now_playi
         embed = embed.author(CreateEmbedAuthor::new("Now playing"));
     } else {
         embed = embed.author(CreateEmbedAuthor::new("Added to queue"));
+    }
+
+    embed
+}
+
+pub fn create_queue_embed(queue: &[Metadata]) -> CreateEmbed {
+    let mut embed = CreateEmbed::new().title("Queue");
+
+    let titles = queue.iter().take(50).map(|m| 
+        if let Some(track) = &m.track {
+            track
+        } else if let Some(title) = &m.title {
+            title
+        } else {
+            "Unknown Track"
+        }
+    ).collect::<Vec<_>>();
+
+    let chunk_titles = titles.chunks_exact(2);
+
+    let chunk_remainder = chunk_titles.remainder();
+
+    for (index, chunk) in chunk_titles.enumerate() {
+        embed = embed.field(
+            format!("{}. {}", 2 * index + 1, chunk[0]), 
+            format!("{}. {}", 2 * index + 2, chunk[1]), 
+            false
+        );
+    }
+
+    if chunk_remainder.len() == 1 {
+        embed = embed.field(format!("{}. {}", titles.len(), chunk_remainder[0]), "", false);
     }
 
     embed
