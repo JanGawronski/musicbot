@@ -38,6 +38,7 @@ impl EventHandler for Handler {
                 "disconnect" => commands::disconnect::run(&ctx, &command).await,
                 "change_channel" => commands::change_channel::run(&ctx, &command).await,
                 "queue" => commands::queue::run(&ctx, &command).await,
+                "clear_queue" => commands::clear_queue::run(&ctx, &command).await,
                 _ => normal_response(&ctx, &command, Some("Unknown command".to_string()), None).await,
             };
         }
@@ -58,6 +59,7 @@ impl EventHandler for Handler {
                 commands::disconnect::register(),
                 commands::change_channel::register(),
                 commands::queue::register(),
+                commands::clear_queue::register(),
             ])
             .await;
     }
