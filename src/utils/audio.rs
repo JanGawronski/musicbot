@@ -173,8 +173,8 @@ pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: Chann
 
     let handle_lock = manager.join(guild_id, channel_id)
         .await
-        .map_err(|e| {
-        format!("Failed to join voice channel: {}", e)
+        .map_err(|why| {
+        format!("Failed to join voice channel: {why:?}")
     })?;
 
     let mut handle = handle_lock.lock().await;
@@ -255,7 +255,7 @@ pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Resul
 
     let input = Input::from(source).make_live_async()
         .await
-        .map_err(|e| format!("Failed to create live input: {}", e))?;
+        .map_err(|why| format!("Failed to create live input: {why:?}"))?;
 
     let track = Track::from(input);
 
@@ -278,7 +278,7 @@ async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, Strin
             .head(metadata.url.as_deref().unwrap_or(""))
             .send()
             .await
-            .map_err(|e| format!("Failed to send HEAD request: {}", e))?;
+            .map_err(|why| format!("Failed to send HEAD request: {why:?}"))?;
 
         if response.status().is_success() {
             return Ok(metadata.clone());
@@ -318,10 +318,10 @@ fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, String> {
             ytdlp_query.as_str()
             ])
         .output()
-        .map_err(|e| format!("Failed to run yt-dlp: {}", e))?;
+        .map_err(|why| format!("Failed to run yt-dlp: {why:?}"))?;
 
-    let metadata: Metadata = serde_json::from_slice(&ytdlp_output.stdout)
-        .map_err(|e| format!("yt-dlp output was not valid UTF-8: {}", e))?;
+    let metadata = serde_json::from_slice(&ytdlp_output.stdout)
+        .map_err(|why| format!("yt-dlp output was not valid UTF-8: {why:?}"))?;
 
     Ok(metadata)
 }
