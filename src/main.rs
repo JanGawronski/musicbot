@@ -24,6 +24,7 @@ use musicbot::utils::{
     audio::HttpKey,
     audio::MetadataCache,
     response::normal_response,
+    localization::Text,
 };
 
 struct Handler;
@@ -40,7 +41,7 @@ impl EventHandler for Handler {
                 "queue" => commands::queue::run(&ctx, &command).await,
                 "clear_queue" => commands::clear_queue::run(&ctx, &command).await,
                 "shuffle" => commands::shuffle::run(&ctx, &command).await,
-                _ => normal_response(&ctx, &command, Some("Unknown command".to_string()), None).await,
+                _ => normal_response(&ctx, &command, Some(Text::UnknownCommand), None).await,
             };
         }
     }

@@ -6,12 +6,13 @@ use std::sync::Arc;
 use musicbot::utils::{
     audio::*,
     response::*,
+    localization::Text,
 };
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) {
     if let Err(why) = command.defer(&ctx.http).await {
         eprintln!("Failed to defer interaction: {why:?}");
-        normal_response(ctx, command, Some("Server error".to_string()), None).await;
+        normal_response(ctx, command, Some(Text::FailedToPlay), None).await;
         return;
     }
 
@@ -30,9 +31,8 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
             
             (track, metadata)
         },
-        Err(why) => {
-            eprintln!("Failed to process query: {why:?}");
-            edit_response(ctx, command, Some("Failed to fetch song.".to_string()), None).await;
+        Err(_) => {
+            edit_response(ctx, command, Some(Text::FailedToFetch), None).await;
             return;
         },
     };
@@ -40,15 +40,13 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
 
     if let Some(id) = channel_id {
         if let Err(why) = join(ctx, command, id).await {
-            eprintln!("Failed to join voice channel: {why:?}");
-            edit_response(ctx, command, Some("Failed to join voice channel.".to_string()), None).await;
+            edit_response(ctx, command, Some(why), None).await;
             return;
         }
     }
 
     if let Err(why) = play(ctx, command, track, metadata, channel_id.is_none()).await {
-        eprintln!("Failed to play track: {why:?}");
-        edit_response(ctx, command, Some("Failed to play track.".to_string()), None).await;
+        edit_response(ctx, command, Some(why), None).await;
         return;
     }
 }

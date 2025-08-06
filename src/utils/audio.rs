@@ -36,10 +36,13 @@ use std::{
     sync::Arc,
 };
 
-use super::response::{
-    followup_response,
-    create_track_embed,
-    edit_response,
+use super::{
+    response::{
+        followup_response,
+        create_track_embed,
+        edit_response,
+    },
+    localization::Text,
 };
 
 use serde::Deserialize;
@@ -92,7 +95,7 @@ impl EventHandler for TrackStartNotifier {
                         0
                     };
 
-                let embed = create_track_embed(metadata, queue_length, true);
+                let embed = create_track_embed(metadata, queue_length, true, &command.locale);
 
                 followup_response(&self.ctx, &command, embed).await;
             }
@@ -140,11 +143,11 @@ impl EventHandler for DriverDisconnectNotifier {
     }
 }
 
-pub fn get_channel_to_join(ctx: &Context, command: &CommandInteraction) -> Result<Option<ChannelId>, String> {
-    let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
+pub fn get_channel_to_join(ctx: &Context, command: &CommandInteraction) -> Result<Option<ChannelId>, Text> {
+    let guild_id = command.guild_id.ok_or(Text::CommandOnlyInGuild)?;
     
     let voice_states = guild_id.to_guild_cached(&ctx.cache)
-        .ok_or("Guild not found in cache.")?
+        .ok_or(Text::FailedToJoin)?
         .voice_states
         .clone();
 
@@ -157,13 +160,13 @@ pub fn get_channel_to_join(ctx: &Context, command: &CommandInteraction) -> Resul
     let channel_id = voice_states
         .get(&command.user.id)
         .and_then(|voice_state| voice_state.channel_id)
-        .ok_or("You must be in a voice channel to use this command.")?;
+        .ok_or(Text::UserMustBeInVoiceChannel)?;
 
     Ok(Some(channel_id))
 }
 
-pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: ChannelId) -> Result<(), String> {
-    let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
+pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: ChannelId) -> Result<(), Text> {
+    let guild_id = command.guild_id.ok_or(Text::CommandOnlyInGuild)?;
 
     let manager = songbird::get(ctx)
         .await
@@ -174,8 +177,10 @@ pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: Chann
     let handle_lock = manager.join(guild_id, channel_id)
         .await
         .map_err(|why| {
-        format!("Failed to join voice channel: {why:?}")
-    })?;
+            eprintln!("Failed to join voice channel: {why:?}");
+            Text::FailedToJoin
+        }
+    )?;
 
     let mut handle = handle_lock.lock().await;
 
@@ -206,20 +211,26 @@ pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: Chann
     Ok(())
 }
 
-pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, metadata: Metadata, add_to_queue: bool) -> Result<(), String> {
-    let guild_id = command.guild_id.ok_or("This command can only be used in a guild.")?;
+pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, metadata: Metadata, add_to_queue: bool) -> Result<(), Text> {
+    let guild_id = command.guild_id.ok_or(Text::CommandOnlyInGuild)?;
 
     let manager = songbird::get(ctx)
         .await
         .expect("Songbird Voice client placed in at initialisation.")
         .clone();
 
-    let handler_lock = manager.get(guild_id).ok_or("No voice handler found for this guild.")?;
+    let handler_lock = match manager.get(guild_id) {
+        Some(handler) => handler,
+        None => {
+            return Err(Text::BotMustBeInVoiceChannel);
+        }
+    };
+
     let mut handler = handler_lock.lock().await;
 
     handler.enqueue(track).await;
 
-    let embed = create_track_embed(&metadata, handler.queue().len() - 1, !add_to_queue);
+    let embed = create_track_embed(&metadata, handler.queue().len() - 1, !add_to_queue, &command.locale);
 
     drop(handler);
 
@@ -228,17 +239,27 @@ pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, met
     Ok(())
 }
 
-pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Result<(Track, Metadata), String> {
-    let value = &command.data.options.get(0)
-        .ok_or("No query provided.")?
-        .value;
+pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Result<(Track, Metadata), ()> {
+    let value = match &command.data.options.get(0) {
+        Some(option) => &option.value,
+        None => {
+            eprintln!("No options found in {command:?}");
+            return Err(());
+        }
+    };
 
     let query = match value {
         CommandDataOptionValue::String(query) => query,
-        _ => return Err("Query must be a string.".to_string()),
+        _ => {
+            eprintln!("Expected a string query, got: {value:?}");
+            return Err(());
+        },
     };
 
-    let metadata = fetch_metadata(ctx, query).await?;
+    let metadata = match fetch_metadata(ctx, query).await {
+        Ok(metadata) => metadata,
+        Err(_) => return Err(()),
+    };
 
     let http_client = {
         let data = ctx.data.read().await;
@@ -250,19 +271,24 @@ pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Resul
     let source = if let Some(ref url) = metadata.url {
             HttpRequest::new(http_client, url.clone())
         } else {
-            return Err("No valid URL found in metadata.".to_string());
+            eprintln!("No URL found in metadata: {:?}", metadata.url);
+            return Err(());
         };
 
-    let input = Input::from(source).make_live_async()
-        .await
-        .map_err(|why| format!("Failed to create live input: {why:?}"))?;
+    let input = match Input::from(source).make_live_async().await {
+        Ok(input) => input,
+        Err(why) => {
+            eprintln!("Failed to create live input: {why:?}");
+            return Err(());
+        }
+    };
 
     let track = Track::from(input);
 
     Ok((track, metadata))
 }
 
-async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, String> {
+async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, ()> {
     let http_client = {
         let data = ctx.data.read().await;
         data.get::<HttpKey>()
@@ -272,25 +298,32 @@ async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, Strin
 
     if let Some(metadata) = ctx.data.read().await
         .get::<MetadataCache>()
-        .ok_or("Metadata cache not found in type map.")?
+        .expect("Guaranteed to exist in the typemap.")
         .get(query) {
-        let response = http_client
+        let response = match http_client
             .head(metadata.url.as_deref().unwrap_or(""))
             .send()
-            .await
-            .map_err(|why| format!("Failed to send HEAD request: {why:?}"))?;
+            .await {
+            Ok(response) => response,
+            Err(why) => {
+                eprintln!("Failed to send HEAD request: {why:?}");
+                return Err(());
+            }
+        };
 
         if response.status().is_success() {
             return Ok(metadata.clone());
         }
     }
 
-    let metadata = fetch_metadata_ytdlp(query)?;
+    let metadata = match fetch_metadata_ytdlp(query) {
+        Ok(metadata) => metadata,
+        Err(_) => return Err(()),
+    };
     
     let mut data = ctx.data.write().await;
 
-    let cache = data.get_mut::<MetadataCache>()
-        .ok_or("Metadata cache not found in type map.")?;
+    let cache = data.get_mut::<MetadataCache>().expect("Guaranteed to exist in the typemap.");
 
     cache.insert(query.to_string(), metadata.clone());
 
@@ -301,14 +334,14 @@ async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, Strin
     Ok(metadata)
 }
 
-fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, String> {
+fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, ()> {
     let ytdlp_query = if query.contains("/") {
         query.to_string()
         } else {
             format!("ytsearch:{}", query)
         };
 
-    let ytdlp_output = Command::new("./yt-dlp")
+    let ytdlp_output = match Command::new("./yt-dlp")
         .args(["--format", 
             "bestaudio/best",
             "--ignore-config",
@@ -317,11 +350,21 @@ fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, String> {
             "--dump-json",
             ytdlp_query.as_str()
             ])
-        .output()
-        .map_err(|why| format!("Failed to run yt-dlp: {why:?}"))?;
+        .output() {
+        Ok(output) => output,
+        Err(why) => {
+            eprintln!("Failed to run yt-dlp: {why:?}");
+            return Err(());
+        }
+    };
 
-    let metadata = serde_json::from_slice(&ytdlp_output.stdout)
-        .map_err(|why| format!("yt-dlp output was not valid UTF-8: {why:?}"))?;
+    let metadata = match serde_json::from_slice(&ytdlp_output.stdout) {
+        Ok(metadata) => metadata,
+        Err(why) => {
+            eprintln!("Failed to parse yt-dlp output: {why:?}");
+            return Err(());
+        }
+    };
 
     Ok(metadata)
 }

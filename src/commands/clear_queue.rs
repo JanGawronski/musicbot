@@ -2,13 +2,16 @@ use serenity::builder::CreateCommand;
 use serenity::model::application::CommandInteraction;
 use serenity::prelude::Context;
 
-use musicbot::utils::response::*;
+use musicbot::utils::{
+    response::*,
+    localization::Text,
+};
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let guild_id = match command.guild_id {
         Some(id) => id,
         None => {
-            normal_response(ctx, command, Some("This command can only be used in a server.".to_string()), None).await;
+            normal_response(ctx, command, Some(Text::CommandOnlyInGuild), None).await;
             return;
         }
     };
@@ -21,7 +24,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let handler_lock = match manager.get(guild_id) {
         Some(handler) => handler,
         None => {
-            normal_response(ctx, command, Some("Not connected to a voice channel.".to_string()), None).await;
+            normal_response(ctx, command, Some(Text::BotMustBeInVoiceChannel), None).await;
             return;
         },
     };
@@ -29,7 +32,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let handler = handler_lock.lock().await;
 
     if handler.queue().is_empty() || handler.queue().len() == 1 {
-        normal_response(ctx, command, Some("Queue is empty.".to_string()), None).await;
+        normal_response(ctx, command, Some(Text::QueueEmpty), None).await;
         return;
     }
     
@@ -39,7 +42,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
 
     drop(handler);
 
-    normal_response(ctx, command, Some("Cleared queue.".to_string()), None).await;
+    normal_response(ctx, command, Some(Text::ClearedQueue), None).await;
 }
 
 pub fn register() -> CreateCommand {

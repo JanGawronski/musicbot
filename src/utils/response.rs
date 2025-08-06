@@ -8,13 +8,17 @@ use serenity::all::{
     CreateEmbed,
     CreateEmbedAuthor,
 };
-use super::audio::Metadata;
 
-pub async fn normal_response(ctx: &Context, command: &CommandInteraction, string: Option<String>, embed: Option<CreateEmbed>) {
+use super::{
+    audio::Metadata,
+    localization::Text,
+};
+
+pub async fn normal_response(ctx: &Context, command: &CommandInteraction, text: Option<Text>, embed: Option<CreateEmbed>) {
     let message = if let Some(embed) = embed {
             CreateInteractionResponseMessage::new().embed(embed)
-        } else if let Some(string) = string {
-            CreateInteractionResponseMessage::new().content(string)
+        } else if let Some(text) = text {
+            CreateInteractionResponseMessage::new().content(text.localization(&command.locale))
         } else {
             eprintln!("No content or embed provided for normal_response");
             return;
@@ -27,11 +31,11 @@ pub async fn normal_response(ctx: &Context, command: &CommandInteraction, string
     }
 }
 
-pub async fn edit_response(ctx: &Context, command: &CommandInteraction, string: Option<String>, embed: Option<CreateEmbed>) {
+pub async fn edit_response(ctx: &Context, command: &CommandInteraction, text: Option<Text>, embed: Option<CreateEmbed>) {
     let builder = if let Some(embed) = embed {
             EditInteractionResponse::new().embed(embed)
-        } else if let Some(string) = string {
-            EditInteractionResponse::new().content(string)
+        } else if let Some(text) = text {
+            EditInteractionResponse::new().content(text.localization(&command.locale))
         } else {
             eprintln!("No content or embed provided for edit_response");
             return;
@@ -52,7 +56,7 @@ pub async fn followup_response(ctx: &Context, command: &CommandInteraction, embe
 
 }
 
-pub fn create_track_embed(metadata: &Metadata, queue_length: usize, is_now_playing: bool) -> CreateEmbed {
+pub fn create_track_embed(metadata: &Metadata, queue_length: usize, is_now_playing: bool, locale: &String) -> CreateEmbed {
     let mut embed = CreateEmbed::new();
 
     if let Some(track) = &metadata.track {
@@ -60,7 +64,7 @@ pub fn create_track_embed(metadata: &Metadata, queue_length: usize, is_now_playi
     } else if let Some(title) = &metadata.title {
         embed = embed.title(title);
     } else {
-        embed = embed.title("Unknown Track");
+        embed = embed.title(Text::UnknownTitle.localization(locale));
     }
 
     if let Some(source_url) = &metadata.webpage_url {
@@ -72,9 +76,9 @@ pub fn create_track_embed(metadata: &Metadata, queue_length: usize, is_now_playi
     }
 
     if let Some(artist) = &metadata.artist {
-        embed = embed.field("Artist", artist, true);
+        embed = embed.field(Text::Artist.localization(locale), artist, true);
     } else if let Some(author) = &metadata.uploader {
-        embed = embed.field("Author", author, true);
+        embed = embed.field(Text::Author.localization(locale), author, true);
     }
     
     
@@ -89,24 +93,26 @@ pub fn create_track_embed(metadata: &Metadata, queue_length: usize, is_now_playi
                 format!("{minutes}:{seconds:02}")
             };
 
-        embed = embed.field("Duration", string, true);
+        embed = embed.field(Text::Duration.localization(locale), string, true);
     }
 
     if queue_length > 0 {
-        embed = embed.field("Queue length", queue_length.to_string(), true);
+        embed = embed.field(Text::QueueLength.localization(locale), queue_length.to_string(), true);
     }
 
     if is_now_playing {
-        embed = embed.author(CreateEmbedAuthor::new("Now playing"));
+        embed = embed.author(CreateEmbedAuthor::new(Text::NowPlaying.localization(locale)));
     } else {
-        embed = embed.author(CreateEmbedAuthor::new("Added to queue"));
+        embed = embed.author(CreateEmbedAuthor::new(Text::AddedToQueue.localization(locale)));
     }
 
     embed
 }
 
-pub fn create_queue_embed(queue: &[Metadata]) -> CreateEmbed {
-    let mut embed = CreateEmbed::new().title("Queue");
+pub fn create_queue_embed(queue: &[Metadata], locale: &String) -> CreateEmbed {
+    let mut embed = CreateEmbed::new().title(Text::Queue.localization(locale));
+
+    let unknown_title = Text::UnknownTitle.localization(locale);
 
     let titles = queue.iter().take(50).map(|m| 
         if let Some(track) = &m.track {
@@ -114,7 +120,7 @@ pub fn create_queue_embed(queue: &[Metadata]) -> CreateEmbed {
         } else if let Some(title) = &m.title {
             title
         } else {
-            "Unknown Track"
+            &unknown_title
         }
     ).collect::<Vec<_>>();
 

@@ -2,13 +2,16 @@ use serenity::builder::CreateCommand;
 use serenity::model::application::CommandInteraction;
 use serenity::prelude::Context;
 
-use musicbot::utils::response::*;
+use musicbot::utils::{
+    response::*,
+    localization::Text,
+};
 
 pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let guild_id = match command.guild_id {
         Some(id) => id,
         None => {
-            normal_response(ctx, command, Some("This command can only be used in a server.".to_string()), None).await;
+            normal_response(ctx, command, Some(Text::CommandOnlyInGuild), None).await;
             return;
         }
     };
@@ -21,7 +24,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let voice_states = match voice_states {
         Some(states) => states,
         None => {
-            normal_response(ctx, command, Some("Failed to change voice channel.".to_string()), None).await;
+            normal_response(ctx, command, Some(Text::FailedToChangeChannel), None).await;
             return;
         }
     };
@@ -30,12 +33,12 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         Some(state) => match state.channel_id {
             Some(id) => id,
             None => {
-                normal_response(ctx, command, Some("You are not connected to a voice channel.".to_string()), None).await;
+                normal_response(ctx, command, Some(Text::UserMustBeInVoiceChannel), None).await;
                 return;
             }
         },
         None => {
-            normal_response(ctx, command, Some("You are not connected to a voice channel.".to_string()), None).await;
+            normal_response(ctx, command, Some(Text::UserMustBeInVoiceChannel), None).await;
             return;
         }
     };
@@ -45,15 +48,15 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         .expect("Songbird Voice client placed in at initialisation.");
 
     if let None = manager.get(guild_id) {
-        normal_response(ctx, command, Some("Not connected to a voice channel.".to_string()), None).await;
+        normal_response(ctx, command, Some(Text::BotMustBeInVoiceChannel), None).await;
         return;
     };
 
     match manager.join(guild_id, channel_id).await {
-        Ok(_) => normal_response(ctx, command, Some("Changed voice channel.".to_string()), None).await,
+        Ok(_) => normal_response(ctx, command, Some(Text::ChangedChannel), None).await,
         Err(why) => {
             eprintln!("Failed to change voice channel: {why:?}");
-            normal_response(ctx, command, Some("Failed to change voice channel.".to_string()), None).await;
+            normal_response(ctx, command, Some(Text::FailedToChangeChannel), None).await;
         },
     }
 
