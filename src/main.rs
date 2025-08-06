@@ -7,11 +7,11 @@ use std::{
 use dotenv::dotenv;
 
 use serenity::{
+    all::Command,
     async_trait,
     model::{
         application::Interaction,
         gateway::Ready,
-        id::GuildId,
     },
     prelude::*,
 };
@@ -46,24 +46,19 @@ impl EventHandler for Handler {
     }
 
     async fn ready(&self, ctx: Context, _: Ready) {
-        let guild_id = GuildId::new(
-            env::var("GUILD_ID")
-                .expect("Expected GUILD_ID in environment")
-                .parse()
-                .expect("GUILD_ID must be an integer"),
-        );
+        let commands = vec![
+            commands::play::register(),
+            commands::skip::register(),
+            commands::disconnect::register(),
+            commands::change_channel::register(),
+            commands::queue::register(),
+            commands::clear_queue::register(),
+            commands::shuffle::register(),
+        ];
 
-        let _ = guild_id 
-            .set_commands(&ctx.http, vec![
-                commands::play::register(),
-                commands::skip::register(),
-                commands::disconnect::register(),
-                commands::change_channel::register(),
-                commands::queue::register(),
-                commands::clear_queue::register(),
-                commands::shuffle::register(),
-            ])
-            .await;
+        for cmd in commands {
+            let _ = Command::create_global_command(&ctx.http, cmd).await;
+        }
     }
 }
 
