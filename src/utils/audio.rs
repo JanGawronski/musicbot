@@ -344,6 +344,8 @@ fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, ()> {
     let ytdlp_output = match Command::new("./yt-dlp")
         .args(["--format", 
             "bestaudio/best",
+            "--cookies",
+            "cookies.txt",
             "--ignore-config",
             "--no-playlist",
             "--no-download",
