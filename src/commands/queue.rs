@@ -31,12 +31,12 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
 
     let handler = handler_lock.lock().await;
 
-    if handler.queue().is_empty() {
+    if handler.queue().is_empty() || handler.queue().len() == 1 {
         normal_response(ctx, command, Some("Queue is empty.".to_string()), None).await;
         return;
     }
 
-    let queue_metadata = handler.queue().current_queue().iter().map(|handle| {
+    let queue_metadata = handler.queue().current_queue().iter().skip(1).map(|handle| {
         let data = handle.data::<(Metadata, Option<CommandInteraction>)>();
         data.0.clone()
     }).collect::<Vec<_>>();
