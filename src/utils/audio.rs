@@ -1,4 +1,5 @@
 use serenity::{
+    all::CreateEmbed,
     async_trait,
     model::{
         application::{
@@ -16,6 +17,7 @@ use serenity::{
 use songbird::{
     input::{
         HttpRequest,
+        File,
         Input,
     }, 
     tracks::Track, 
@@ -40,7 +42,6 @@ use super::{
     response::{
         followup_response,
         create_track_embed,
-        edit_response,
     },
     localization::Text,
 };
@@ -68,6 +69,12 @@ impl TypeMapKey for HttpKey {
 pub struct MetadataCache;
 
 impl TypeMapKey for MetadataCache {
+    type Value = HashMap<String, Metadata>;
+}
+
+pub struct FileCache;
+
+impl TypeMapKey for FileCache {
     type Value = HashMap<String, Metadata>;
 }
 
@@ -211,7 +218,7 @@ pub async fn join(ctx: &Context, command: &CommandInteraction, channel_id: Chann
     Ok(())
 }
 
-pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, metadata: Metadata, add_to_queue: bool) -> Result<(), Text> {
+pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, metadata: Metadata, add_to_queue: bool) -> Result<CreateEmbed, Text> {
     let guild_id = command.guild_id.ok_or(Text::CommandOnlyInGuild)?;
 
     let manager = songbird::get(ctx)
@@ -234,13 +241,11 @@ pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, met
 
     drop(handler);
 
-    edit_response(ctx, command, embed.into()).await;
-
-    Ok(())
+    Ok(embed)
 }
 
 pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Result<(Track, Metadata), ()> {
-    let value = match &command.data.options.get(0) {
+    let value = match &command.data.options.first() {
         Some(option) => &option.value,
         None => {
             eprintln!("No options found in {command:?}");
@@ -369,4 +374,53 @@ fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, ()> {
     };
 
     Ok(metadata)
+}
+
+pub async fn process_local_query(ctx: &Context, command: &CommandInteraction) -> Result<(Track, Metadata), ()> {
+    let value = match &command.data.options.first() {
+        Some(option) => &option.value,
+        None => {
+            eprintln!("No options found in {command:?}");
+            return Err(());
+        }
+    };
+
+    let query = match value {
+        CommandDataOptionValue::String(query) => query,
+        _ => {
+            eprintln!("Expected a string query, got: {value:?}");
+            return Err(());
+        },
+    };
+
+    let metadata = {
+        let data = ctx.data.read().await;
+        let cache = data.get::<FileCache>()
+            .cloned()
+            .expect("Guaranteed to exist in the typemap.");
+        if let Some(metadata) = cache.get(query) {
+            metadata.clone()
+        } else {
+            return Err(());
+        }
+    };
+
+    let source = if let Some(ref url) = metadata.url {
+            File::new(url.clone())
+        } else {
+            eprintln!("No URL found in metadata: {:?}", metadata.url);
+            return Err(());
+        };
+
+    let input = match Input::from(source).make_live_async().await {
+        Ok(input) => input,
+        Err(why) => {
+            eprintln!("Failed to create live input: {why:?}");
+            return Err(());
+        }
+    };
+
+    let track = Track::from(input);
+
+    Ok((track, metadata))
 }

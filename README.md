@@ -6,6 +6,7 @@ Bot for playing music in Discord voice channels.
 - Uses slash commands
 - Has queue
 - Has cache
+- Supports local audio files
 - Leaves voice channel after song/queue ends
 
 ## How to run
@@ -20,6 +21,10 @@ Bot uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) so you have to download yt-d
 
 ### Cookies
 You have to provide Netscape formatted cookies file for yt-dlp to be able to play age-restricted videos from YouTube. You can use [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/). Put exported file in the same directory as bot binary and name it `cookies.txt`.
+
+### Local audio files
+You can put audio files you want to play locally in `audio` directory.
+
 
 ## How to build
 You need to have [Rust](https://www.rust-lang.org/tools/install) and [Cargo](https://doc.rust-lang.org/cargo/getting-started/installation.html) installed

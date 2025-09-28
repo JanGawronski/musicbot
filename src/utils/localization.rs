@@ -24,6 +24,7 @@ pub enum Text {
     ClearedQueue,
     FailedToChangeChannel,
     ChangedChannel,
+    NoSuchFile,
 }
 
 impl Text {
@@ -55,6 +56,7 @@ impl Text {
                 Text::ClearedQueue => "Kolejka została wyczyszczona.".to_string(),
                 Text::FailedToChangeChannel => "Nie udało się zmienić kanału głosowego.".to_string(),
                 Text::ChangedChannel => "Zmieniono kanał głosowy.".to_string(),
+                Text::NoSuchFile => "Nie znaleziono takiego pliku.".to_string(),
             },
             _ => match self {
                 Text::UnknownCommand => "Unknown command".to_string(),
@@ -82,6 +84,7 @@ impl Text {
                 Text::ClearedQueue => "Cleared queue.".to_string(),
                 Text::FailedToChangeChannel => "Failed to change voice channel.".to_string(),
                 Text::ChangedChannel => "Changed voice channel.".to_string(),
+                Text::NoSuchFile => "No such file found.".to_string(),
             },
         }
     }

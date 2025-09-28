@@ -5,3 +5,4 @@ pub mod change_channel;
 pub mod queue;
 pub mod clear_queue;
 pub mod shuffle;
+pub mod play_local;

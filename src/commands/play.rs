@@ -45,9 +45,9 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         }
     }
 
-    if let Err(why) = play(ctx, command, track, metadata, channel_id.is_none()).await {
-        edit_response(ctx, command, why.into()).await;
-        return;
+    match play(ctx, command, track, metadata, channel_id.is_none()).await {
+        Ok(embed) => edit_response(ctx, command, embed.into()).await,
+        Err(why) => edit_response(ctx, command, why.into()).await,
     }
 }
 
