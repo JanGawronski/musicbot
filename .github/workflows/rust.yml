@@ -31,33 +31,23 @@ jobs:
           target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Install Rust (stable)
+    - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         override: true
         profile: minimal
 
-    - name: Build (release)
+    - name: Build
       run: cargo build --release
 
-    - name: Package
-      run: |
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          powershell -Command "Compress-Archive -Path target/release/${{ env.BINARY_NAME }}.exe -DestinationPath ${ { env.BINARY_NAME } }-windows.zip"
-        else
-          tar -czf ${{ env.BINARY_NAME }}-linux.tar.gz -C target/release ${{ env.BINARY_NAME }}
-        fi
-      shell: bash
-
-    - name: Release (create/update) & upload assets
+    - name: Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ github.run_number }}
         name: Nightly build
         files: |
-          ${{ env.BINARY_NAME }}-linux.tar.gz
-          ${{ env.BINARY_NAME }}-windows.zip
-          target/release/${{ env.BINARY_NAME }}*
+          target/release/${{ env.BINARY_NAME }}
+          target/release/${{ env.BINARY_NAME }}.exe
         overwrite_files: true
         make_latest: true
