@@ -41,7 +41,7 @@ impl EventHandler for Handler {
                 "queue" => commands::queue::run(&ctx, &command).await,
                 "clear_queue" => commands::clear_queue::run(&ctx, &command).await,
                 "shuffle" => commands::shuffle::run(&ctx, &command).await,
-                _ => normal_response(&ctx, &command, Some(Text::UnknownCommand), None).await,
+                _ => normal_response(&ctx, &command, Text::UnknownCommand.into()).await,
             };
         }
     }

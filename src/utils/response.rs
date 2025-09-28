@@ -14,15 +14,30 @@ use super::{
     localization::Text,
 };
 
-pub async fn normal_response(ctx: &Context, command: &CommandInteraction, text: Option<Text>, embed: Option<CreateEmbed>) {
-    let message = if let Some(embed) = embed {
-            CreateInteractionResponseMessage::new().embed(embed)
-        } else if let Some(text) = text {
-            CreateInteractionResponseMessage::new().content(text.localization(&command.locale))
-        } else {
-            eprintln!("No content or embed provided for normal_response");
-            return;
-        };
+pub enum Message {
+    Text(Text),
+    Embed(CreateEmbed),
+}
+
+impl From<Text> for Message {
+    fn from(text: Text) -> Self {
+        Message::Text(text)
+    }
+}
+
+impl From<CreateEmbed> for Message {
+    fn from(embed: CreateEmbed) -> Self {
+        Message::Embed(embed)
+    }
+}
+
+pub async fn normal_response(ctx: &Context, command: &CommandInteraction, message: Message) {
+    let message = match message {
+        Message::Text(text) => CreateInteractionResponseMessage::new()
+            .content(text.localization(&command.locale)),
+        Message::Embed(embed) => CreateInteractionResponseMessage::new()
+            .embed(embed),
+    };
 
     let builder = CreateInteractionResponse::Message(message);
 
@@ -31,15 +46,13 @@ pub async fn normal_response(ctx: &Context, command: &CommandInteraction, text: 
     }
 }
 
-pub async fn edit_response(ctx: &Context, command: &CommandInteraction, text: Option<Text>, embed: Option<CreateEmbed>) {
-    let builder = if let Some(embed) = embed {
-            EditInteractionResponse::new().embed(embed)
-        } else if let Some(text) = text {
-            EditInteractionResponse::new().content(text.localization(&command.locale))
-        } else {
-            eprintln!("No content or embed provided for edit_response");
-            return;
-        };
+pub async fn edit_response(ctx: &Context, command: &CommandInteraction, message: Message) {
+    let builder = match message {
+        Message::Text(text) => EditInteractionResponse::new()
+            .content(text.localization(&command.locale)),
+        Message::Embed(embed) => EditInteractionResponse::new()
+            .embed(embed),
+    };
 
     if let Err(why) = command.edit_response(&ctx.http, builder).await {
         eprintln!("Failed to edit interaction response: {why:?}");

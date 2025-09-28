@@ -234,7 +234,7 @@ pub async fn play(ctx: &Context, command: &CommandInteraction, track: Track, met
 
     drop(handler);
 
-    edit_response(ctx, command, None, Some(embed)).await;
+    edit_response(ctx, command, embed.into()).await;
 
     Ok(())
 }

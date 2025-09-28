@@ -11,7 +11,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let guild_id = match command.guild_id {
         Some(id) => id,
         None => {
-            normal_response(ctx, command, Some(Text::CommandOnlyInGuild), None).await;
+            normal_response(ctx, command, Text::CommandOnlyInGuild.into()).await;
             return;
         }
     };
@@ -24,7 +24,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let voice_states = match voice_states {
         Some(states) => states,
         None => {
-            normal_response(ctx, command, Some(Text::FailedToChangeChannel), None).await;
+            normal_response(ctx, command, Text::FailedToChangeChannel.into()).await;
             return;
         }
     };
@@ -33,12 +33,12 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         Some(state) => match state.channel_id {
             Some(id) => id,
             None => {
-                normal_response(ctx, command, Some(Text::UserMustBeInVoiceChannel), None).await;
+                normal_response(ctx, command, Text::UserMustBeInVoiceChannel.into()).await;
                 return;
             }
         },
         None => {
-            normal_response(ctx, command, Some(Text::UserMustBeInVoiceChannel), None).await;
+            normal_response(ctx, command, Text::UserMustBeInVoiceChannel.into()).await;
             return;
         }
     };
@@ -48,15 +48,15 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         .expect("Songbird Voice client placed in at initialisation.");
 
     if let None = manager.get(guild_id) {
-        normal_response(ctx, command, Some(Text::BotMustBeInVoiceChannel), None).await;
+        normal_response(ctx, command, Text::BotMustBeInVoiceChannel.into()).await;
         return;
     };
 
     match manager.join(guild_id, channel_id).await {
-        Ok(_) => normal_response(ctx, command, Some(Text::ChangedChannel), None).await,
+        Ok(_) => normal_response(ctx, command, Text::ChangedChannel.into()).await,
         Err(why) => {
             eprintln!("Failed to change voice channel: {why:?}");
-            normal_response(ctx, command, Some(Text::FailedToChangeChannel), None).await;
+            normal_response(ctx, command, Text::FailedToChangeChannel.into()).await;
         },
     }
 

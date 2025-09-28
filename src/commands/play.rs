@@ -12,13 +12,13 @@ use musicbot::utils::{
 pub async fn run(ctx: &Context, command: &CommandInteraction) {
     if let Err(why) = command.defer(&ctx.http).await {
         eprintln!("Failed to defer interaction: {why:?}");
-        normal_response(ctx, command, Some(Text::FailedToPlay), None).await;
+        normal_response(ctx, command, Text::FailedToPlay.into()).await;
         return;
     }
 
     let channel_id = match get_channel_to_join(ctx, command) {
         Ok(id) => id,
-        Err(err) => return edit_response(ctx, command, Some(err), None).await,
+        Err(err) => return edit_response(ctx, command, err.into()).await,
     };
 
     let (track, metadata) = match process_query(ctx, command).await {
@@ -32,7 +32,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
             (track, metadata)
         },
         Err(_) => {
-            edit_response(ctx, command, Some(Text::FailedToFetch), None).await;
+            edit_response(ctx, command, Text::FailedToFetch.into()).await;
             return;
         },
     };
@@ -40,13 +40,13 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
 
     if let Some(id) = channel_id {
         if let Err(why) = join(ctx, command, id).await {
-            edit_response(ctx, command, Some(why), None).await;
+            edit_response(ctx, command, why.into()).await;
             return;
         }
     }
 
     if let Err(why) = play(ctx, command, track, metadata, channel_id.is_none()).await {
-        edit_response(ctx, command, Some(why), None).await;
+        edit_response(ctx, command, why.into()).await;
         return;
     }
 }

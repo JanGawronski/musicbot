@@ -11,7 +11,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let guild_id = match command.guild_id {
         Some(id) => id,
         None => {
-            normal_response(ctx, command, Some(Text::CommandOnlyInGuild), None).await;
+            normal_response(ctx, command, Text::CommandOnlyInGuild.into()).await;
             return;
         }
     };
@@ -24,7 +24,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let handler_lock = match manager.get(guild_id) {
         Some(handler) => handler,
         None => {
-            normal_response(ctx, command, Some(Text::BotMustBeInVoiceChannel), None).await;
+            normal_response(ctx, command, Text::BotMustBeInVoiceChannel.into()).await;
             return;
         },
     };
@@ -32,19 +32,19 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let handler = handler_lock.lock().await;
 
     if handler.queue().is_empty() {
-        normal_response(ctx, command, Some(Text::QueueEmpty), None).await;
+        normal_response(ctx, command, Text::QueueEmpty.into()).await;
         return;
     }
 
     if let Err(why) = handler.queue().skip() {
         println!("Failed to skip track: {}", why);
-        normal_response(ctx, command, Some(Text::FailedToSkip), None).await;
+        normal_response(ctx, command, Text::FailedToSkip.into()).await;
         return;
     }
 
     drop(handler);
 
-    normal_response(ctx, command, Some(Text::Skipped), None).await;
+    normal_response(ctx, command, Text::Skipped.into()).await;
 }
 
 pub fn register() -> CreateCommand {

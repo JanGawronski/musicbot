@@ -11,7 +11,7 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
     let guild_id = match command.guild_id {
         Some(id) => id,
         None => {
-            normal_response(ctx, command, Some(Text::CommandOnlyInGuild), None).await;
+            normal_response(ctx, command, Text::CommandOnlyInGuild.into()).await;
             return;
         }
     };
@@ -21,10 +21,10 @@ pub async fn run(ctx: &Context, command: &CommandInteraction) {
         .expect("Songbird Voice client placed in at initialisation.");
 
     match manager.leave(guild_id).await {
-        Ok(_) => normal_response(ctx, command, Some(Text::Disconnected), None).await,
+        Ok(_) => normal_response(ctx, command, Text::Disconnected.into()).await,
         Err(why) => {
             eprintln!("Failed to disconnect: {why:?}");
-            normal_response(ctx, command, Some(Text::FailedToDisconnect), None).await;
+            normal_response(ctx, command, Text::FailedToDisconnect.into()).await;
         }
     }
 }
