@@ -346,11 +346,9 @@ fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, ()> {
             format!("ytsearch:{}", query)
         };
 
-    let ytdlp_output = match Command::new("./yt-dlp")
+    let mut ytdlp_output = match Command::new("./yt-dlp")
         .args(["--format", 
             "bestaudio/best",
-            "--cookies",
-            "cookies.txt",
             "--ignore-config",
             "--no-playlist",
             "--no-download",
@@ -364,6 +362,38 @@ fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, ()> {
             return Err(());
         }
     };
+
+    if !ytdlp_output.status.success() {
+        let stderr= match str::from_utf8(&ytdlp_output.stdout) {
+            Ok(s) => s,
+            Err(_) => "",
+        };
+        if stderr.contains("cookies") {
+            ytdlp_output = match Command::new("./yt-dlp")
+                .args(["--format", 
+                    "bestaudio/best",
+                    "--cookies",
+                    "cookies.txt",
+                    "--ignore-config",
+                    "--no-playlist",
+                    "--no-download",
+                    "--dump-json",
+                    ytdlp_query.as_str()
+                    ])
+                .output() {
+                Ok(output) => output,
+                Err(why) => {
+                    eprintln!("Failed to run yt-dlp: {why:?}");
+                    return Err(());
+                }
+            };
+        }
+    }
+
+    if !ytdlp_output.status.success() {
+        eprintln!("yt-dlp returned a non-zero exit code: {:?}", ytdlp_output);
+        return Err(());
+    }
 
     let metadata = match serde_json::from_slice(&ytdlp_output.stdout) {
         Ok(metadata) => metadata,
