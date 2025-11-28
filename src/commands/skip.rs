@@ -2,7 +2,7 @@ use serenity::builder::CreateCommand;
 use serenity::model::application::CommandInteraction;
 use serenity::prelude::Context;
 
-use musicbot::utils::{
+use crate::utils::{
     response::*,
     localization::Text,
 };

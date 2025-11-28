@@ -3,7 +3,7 @@ use serenity::model::application::{CommandInteraction, CommandOptionType};
 use serenity::prelude::Context;
 use std::sync::Arc;
 
-use musicbot::utils::{
+use crate::utils::{
     audio::*,
     response::*,
     localization::Text,

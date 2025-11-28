@@ -4,7 +4,7 @@ use serenity::prelude::Context;
 
 use rand::seq::SliceRandom;
 
-use musicbot::utils::{
+use crate::utils::{
     response::*,
     localization::Text,
 };
