@@ -5,13 +5,14 @@ use std::{
     env,
     collections::HashMap,
 };
-use dotenv::dotenv;
 
 use serenity::prelude::*;
 
 use songbird::SerenityInit;
 
 use reqwest::Client as HttpClient;
+
+use clap::Parser;
 
 use crate::utils::{
     audio::{
@@ -21,13 +22,14 @@ use crate::utils::{
     },
     event_handler::Handler,
     local_files::get_audio_files,
+    cli::Config,
 };
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok();
+    let cli = Config::parse();
 
-    let token = env::var("DISCORD_TOKEN").expect("env variable `DISCORD_TOKEN` should be set by `.env` file");
+    let token = env::var("DISCORD_TOKEN").expect("env variable `DISCORD_TOKEN` should be set");
 
     let intents = GatewayIntents::GUILDS | GatewayIntents::GUILD_VOICE_STATES;
 
@@ -37,7 +39,8 @@ async fn main() {
         .register_songbird()
         .type_map_insert::<HttpKey>(HttpClient::new())
         .type_map_insert::<MetadataCache>(HashMap::new())
-        .type_map_insert::<FileCache>(get_audio_files())
+        .type_map_insert::<FileCache>(get_audio_files(&cli.audio_directory))
+        .type_map_insert::<Config>(cli)
         .await
         .expect("Err creating client");
 

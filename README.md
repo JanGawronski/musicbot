@@ -11,19 +11,30 @@ Bot for playing music in Discord voice channels.
 
 ## How to run
 ### Tokens
-To run this bot you have to create Discord Application on [Discord Developer portal](https://discord.com/developers/applications) and put its API token in .env file. File should look like this:
+To run this bot you have to create Discord Application on [Discord Developer portal](https://discord.com/developers/applications) and add its API token to PATH. Example for Linux:
+```bash
+export DISCORD_TOKEN="your_token_here"
 ```
-DISCORD_TOKEN=your_token_here
+Example for Windows cmd:
+```cmd
+set DISCORD_TOKEN="your_token_here"
 ```
 
 ### yt-dlp
-Bot uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) so you have to download yt-dlp binary and put it in the same directory as bot binary. Bot expects binary to be named `yt-dlp`.
+Bot uses [yt-dlp](https://github.com/yt-dlp/yt-dlp) so you have to install yt-dlp/download yt-dlp binary and pass its path to bot using `--yt-dlp` argument. Example for Linux:
+```bash
+./musicbot --yt-dlp /path/to/yt-dlp
+```
+Example for Windows:
+```cmd
+musicbot.exe --yt-dlp C:\path\to\yt-dlp.exe
+```
 
 ### Cookies
-You have to provide Netscape formatted cookies file for yt-dlp to be able to play age-restricted videos from YouTube. You can use [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/). Put exported file in the same directory as bot binary and name it `cookies.txt`.
+You have to provide Netscape formatted cookies file for yt-dlp to be able to play age-restricted videos from YouTube. You can use [cookies.txt](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt/). Pass path to exported file using `--cookies` argument.
 
 ### Local audio files
-You can put audio files you want to play locally in `audio` directory.
+You can pass path to directory with local audio files using `--local_audio` argument. Bot will be able to play audio files from this directory using `play_local` command.
 
 
 ## How to build

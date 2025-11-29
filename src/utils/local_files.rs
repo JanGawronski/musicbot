@@ -16,11 +16,16 @@ use lofty::{
 
 use super::audio::Metadata;
 
-pub fn get_audio_files() -> HashMap<String, Metadata> {
-    let paths = match read_dir("audio/") {
+pub fn get_audio_files(path: &Option<PathBuf>) -> HashMap<String, Metadata> {
+    let read_dir = match path {
+        Some(dir) => read_dir(dir),
+        None => return HashMap::new(),
+    };
+
+    let paths = match read_dir {
         Ok(paths) => paths,
-        Err(err) => {
-            eprintln!("Failed to read audio directory: {err:?}. If you want to use local files, create an 'audio' directory and add some audio files to it.");
+        Err(why) => {
+            eprintln!("Failed to read audio directory: {why:?}");
             return HashMap::new();
         }
     };

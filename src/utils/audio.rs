@@ -44,6 +44,7 @@ use super::{
         create_track_embed,
     },
     localization::Text,
+    cli::Config,
 };
 
 use serde::Deserialize;
@@ -294,7 +295,7 @@ pub async fn process_query(ctx: &Context, command: &CommandInteraction) -> Resul
 }
 
 async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, ()> {
-    let http_client = {
+    let http_client: HttpClient = {
         let data = ctx.data.read().await;
         data.get::<HttpKey>()
             .cloned()
@@ -321,7 +322,7 @@ async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, ()> {
         }
     }
 
-    let metadata = match fetch_metadata_ytdlp(query) {
+    let metadata = match fetch_metadata_ytdlp(ctx, query).await {
         Ok(metadata) => metadata,
         Err(_) => return Err(()),
     };
@@ -339,14 +340,21 @@ async fn fetch_metadata(ctx: &Context, query: &String) -> Result<Metadata, ()> {
     Ok(metadata)
 }
 
-fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, ()> {
+async fn fetch_metadata_ytdlp(ctx: &Context, query: &String) -> Result<Metadata, ()> {
     let ytdlp_query = if query.contains("/") {
         query.to_string()
         } else {
             format!("ytsearch:{}", query)
         };
 
-    let mut ytdlp_output = match Command::new("./yt-dlp")
+    let config: Config = {
+        let data = ctx.data.read().await;
+        data.get::<Config>()
+            .cloned()
+            .expect("Guaranteed to exist in the typemap.")
+    };
+
+    let mut ytdlp_output = match Command::new(config.yt_dlp.clone())
         .args(["--format", 
             "bestaudio/best",
             "--ignore-config",
@@ -368,12 +376,12 @@ fn fetch_metadata_ytdlp(query: &String) -> Result<Metadata, ()> {
             Ok(s) => s,
             Err(_) => "",
         };
-        if stderr.contains("cookies") {
-            ytdlp_output = match Command::new("./yt-dlp")
+        if stderr.contains("cookies") && let Some(cookies_path) = config.cookies {
+            ytdlp_output = match Command::new(config.yt_dlp)
                 .args(["--format", 
                     "bestaudio/best",
                     "--cookies",
-                    "cookies.txt",
+                    cookies_path.as_str(),
                     "--ignore-config",
                     "--no-playlist",
                     "--no-download",
@@ -423,7 +431,7 @@ pub async fn process_local_query(ctx: &Context, command: &CommandInteraction) ->
         },
     };
 
-    let metadata = {
+    let metadata: Metadata = {
         let data = ctx.data.read().await;
         let cache = data.get::<FileCache>()
             .cloned()
