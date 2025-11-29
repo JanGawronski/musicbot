@@ -16,7 +16,7 @@ pub struct Config {
 
     #[arg(
         short,
-        long = "local_audio",
+        long = "local-audio",
         value_name = "DIRECTORY_PATH",
         help = "Directory containing local audio files",
         value_parser = validate_directory_path,
