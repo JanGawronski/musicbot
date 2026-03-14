@@ -1,7 +1,10 @@
 mod commands;
 mod utils;
 
-use std::collections::HashMap,
+use std::{
+    collections::HashMap,
+    fs::read_to_string,
+};
 
 use serenity::prelude::*;
 
@@ -28,8 +31,10 @@ async fn main() {
 
     let intents = GatewayIntents::GUILDS | GatewayIntents::GUILD_VOICE_STATES;
 
+    let token = read_to_string(&cli.token).expect("Can't read token");
+
     let mut client =
-        Client::builder(&cli.token, intents)
+        Client::builder(&token, intents)
         .event_handler(Handler)
         .register_songbird()  
         .type_map_insert::<HttpKey>(HttpClient::new())

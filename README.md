@@ -11,13 +11,13 @@ Bot for playing music in Discord voice channels.
 
 ## How to run
 ### Tokens
-To run this bot you have to create Discord Application on [Discord Developer portal](https://discord.com/developers/applications) and add its API token to PATH. Example for Linux:
+To run this bot you have to create Discord Application on [Discord Developer portal](https://discord.com/developers/applications), save it to file and pass its path using `--token` argument. Example for Linux:
 ```bash
-export DISCORD_TOKEN="your_token_here"
+./musicbot --token /path/to/token
 ```
 Example for Windows cmd:
 ```cmd
-set DISCORD_TOKEN="your_token_here"
+musicbot.exe --token C:\path\to\token
 ```
 
 ### yt-dlp
