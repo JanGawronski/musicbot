@@ -1,10 +1,7 @@
 mod commands;
 mod utils;
 
-use std::{
-    env,
-    collections::HashMap,
-};
+use std::collections::HashMap,
 
 use serenity::prelude::*;
 
@@ -29,14 +26,12 @@ use crate::utils::{
 async fn main() {
     let cli = Config::parse();
 
-    let token = env::var("DISCORD_TOKEN").expect("env variable `DISCORD_TOKEN` should be set");
-
     let intents = GatewayIntents::GUILDS | GatewayIntents::GUILD_VOICE_STATES;
 
     let mut client =
-        Client::builder(&token, intents)
+        Client::builder(&cli.token, intents)
         .event_handler(Handler)
-        .register_songbird()
+        .register_songbird()  
         .type_map_insert::<HttpKey>(HttpClient::new())
         .type_map_insert::<MetadataCache>(HashMap::new())
         .type_map_insert::<FileCache>(get_audio_files(&cli.audio_directory))

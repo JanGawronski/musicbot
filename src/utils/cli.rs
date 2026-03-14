@@ -1,6 +1,6 @@
 use clap::Parser;
-use std::path::PathBuf;
 use serenity::prelude::TypeMapKey;
+use std::path::PathBuf;
 
 #[derive(Parser, Clone)]
 #[command(version, about)]
@@ -13,6 +13,15 @@ pub struct Config {
         value_parser = validate_executable_path,
     )]
     pub yt_dlp: PathBuf,
+
+    #[arg(
+        short, 
+        long, 
+        value_name = "TOKEN_PATH", 
+        help = "Path to discord bot token",
+        value_parser = validate_file_path,
+    )]
+    pub token: PathBuf,
 
     #[arg(
         short,
