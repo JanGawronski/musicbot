@@ -37,7 +37,7 @@ pub struct Config {
         long,
         value_name = "FILE_PATH",
         help = "Path to cookies file for yt-dlp authentication",
-        value_parser = validate_file_path,
+        value_parser = validate_file_path_string,
     )]
     pub cookies: Option<String>,
 }
@@ -69,7 +69,19 @@ fn validate_directory_path(path: &str) -> Result<PathBuf, String> {
     }
 }
 
-fn validate_file_path(path: &str) -> Result<String, String> {
+fn validate_file_path(path: &str) -> Result<PathBuf, String> {
+    let pb = PathBuf::from(path);
+
+    if !pb.exists() {
+        Err(format!("'{}' does not exist", path))
+    } else if !pb.is_file() {
+        Err(format!("'{}' is not a file", path))
+    }  else {
+        Ok(pb)
+    }
+}
+
+fn validate_file_path_string(path: &str) -> Result<String, String> {
     let pb = PathBuf::from(path);
 
     if !pb.exists() {
@@ -80,3 +92,4 @@ fn validate_file_path(path: &str) -> Result<String, String> {
         Ok(pb.to_string_lossy().to_string())
     }
 }
+
